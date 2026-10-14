@@ -23,13 +23,13 @@
 <body>
 <main>
   <h1>20 Languages. One Heart. ❤️</h1>
-  <p>Watch a heart draw itself, then fill with love in 20 languages.</p>
+  <p>Watch the heart draw itself with love in 20 languages.</p>
   <canvas id="heart" aria-label="An animated heart made of love messages in 20 languages"></canvas>
   <div class="bottom">
     <button id="toggle">Pause animation</button>
     <button id="share">Share this page</button>
   </div>
-  <div class="note">Made with love • Turn your phone sideways for a wider heart</div>
+  <div class="note">Made with love for you, Darling <3 • Turn your phone sideways for a wider heart</div>
 </main>
 <script>
 const phrases = [
@@ -57,154 +57,143 @@ const phrases = [
 const colors = ["#ff8bb8", "#ffb5d0", "#ff4f91", "#ffd0e1", "#e86aa4", "#ff9fbd"];
 const canvas = document.getElementById("heart");
 const ctx = canvas.getContext("2d");
-let W = 800, H = 650, frame = 0, running = true, raf;
-let completed = false;
-const outlinePoints = 520;
-const fillPoints = 1250;
-const drawDuration = 560;   // outline drawing frames
-const fillDuration = 680;   // interior fill frames
-const totalDuration = drawDuration + fillDuration;
-let layout = [];
+let W=800,H=650,frame=0,running=true,raf,completed=false,layout;
+const outlinePoints=520, drawDuration=620, fillDuration=760;
 
-function resize() {
-  const rect = canvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = Math.max(300, rect.width); H = Math.max(300, rect.height);
-  canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  layout = makeLayout();
+function resize(){
+  const rect=canvas.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
+  W=Math.max(300,rect.width); H=Math.max(300,rect.height);
+  canvas.width=Math.floor(W*dpr); canvas.height=Math.floor(H*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  layout=makeLayout();
   renderFrame();
 }
-function heartPoint(a) {
-  return {
-    x: 16 * Math.pow(Math.sin(a), 3),
-    y: 13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a)
-  };
+function heartPoint(a){
+  return {x:16*Math.pow(Math.sin(a),3),y:13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a)};
 }
-function textAt(text, font, x, y, size, color, glow=false, alpha=1) {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = color;
-  ctx.font = `700 ${size}px ${font}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 10; }
-  ctx.fillText(text, x, y);
-  ctx.restore();
-}
-function heartInside(x, y) {
-  // Normalized implicit check using the classic heart curve, robustly sample the outline.
-  const poly = [];
-  for (let i=0; i<360; i++) {
-    const p=heartPoint(i*Math.PI/180);
-    poly.push([p.x,p.y]);
-  }
+function heartInside(x,y,poly){
   let inside=false;
-  for (let i=0,j=poly.length-1;i<poly.length;j=i++) {
-    const [xi,yi]=poly[i], [xj,yj]=poly[j];
-    const intersect=((yi>y)!==(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi+1e-9)+xi);
-    if(intersect) inside=!inside;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const [xi,yi]=poly[i],[xj,yj]=poly[j];
+    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi+1e-9)+xi))inside=!inside;
   }
   return inside;
 }
-function makeLayout() {
-  const scale = Math.min(W / 37, H / 33) * 0.94;
-  const cx=W/2, cy=H/2+scale*0.1;
+function makeLayout(){
+  const scale=Math.min(W/37,H/33)*0.94,cx=W/2,cy=H/2+scale*0.1;
+  const poly=[];
+  for(let i=0;i<720;i++){const p=heartPoint(i*Math.PI/360);poly.push([p.x,p.y]);}
   const outline=[];
   for(let i=0;i<outlinePoints;i++){
-    const a=2*Math.PI*i/outlinePoints;
-    const p=heartPoint(a);
-    outline.push({x:cx+p.x*scale,y:cy-p.y*scale, lang:i%phrases.length, color:colors[i%colors.length], glow:(i*13)%17===0});
+    const p=heartPoint(2*Math.PI*i/outlinePoints);
+    outline.push({x:cx+p.x*scale,y:cy-p.y*scale,lang:Math.floor(i/outlinePoints*phrases.length),color:colors[i%colors.length],glow:i%31===7||i%47===13});
   }
-  // Deterministic rows of points inside the true heart polygon; avoid the outside/concave lobes.
-  const inner=[];
-  const minX=-15.3, maxX=15.3, minY=-16.0, maxY=12.0;
-  const spacing=0.85;
-  for(let y=minY;y<=maxY;y+=spacing){
-    for(let x=minX;x<=maxX;x+=spacing){
-      if(heartInside(x,y) && Math.sin(x*1.9+y*2.7)>-0.98){
-        const p={x:cx+x*scale/16,y:cy-y*scale/16};
-        const seed=Math.abs(Math.floor((x+20)*127+(y+20)*311));
-        inner.push({x:p.x,y:p.y,lang:seed%phrases.length,color:colors[seed%colors.length],glow:seed%19===0});
+  // Dense, even grid across the full interior of the heart. Each of the 20 languages
+  // is assigned across the shape; there is no changing language carousel.
+  const inner=[], step=0.66;
+  let n=0;
+  for(let y=-16.1;y<=12.6;y+=step){
+    for(let x=-15.4;x<=15.4;x+=step){
+      if(heartInside(x,y,poly)){
+        const lang=(n*7+Math.floor((y+17)*3))%phrases.length;
+        // Only a small, deterministic selection twinkles like stars.
+        const glow=(n%29===4)||(n%67===11)||(n%101===23);
+        inner.push({
+          x:cx+x*scale, y:cy-y*scale, lang,
+          color:colors[(n*3+lang)%colors.length], glow,
+          starSize: n%101===23 ? 1.35 : 1
+        });
+        n++;
       }
     }
   }
-  // Draw from outer rows toward the middle to make the filling read as a deliberate fill.
-  inner.sort((a,b)=>Math.abs(a.y-cy)-Math.abs(b.y-cy));
+  // Fill from top to bottom like writing/drawing, then leave every point in place.
+  inner.sort((a,b)=>a.y-b.y || a.x-b.x);
   return {scale,cx,cy,outline,inner};
 }
-function drawOutline(progress) {
-  const count=Math.floor(progress*layout.outline.length);
-  for(let i=0;i<count;i++){
-    const p=layout.outline[i];
-    const item=phrases[p.lang];
-    const size=Math.max(6.5,Math.min(10,W/70));
-    if(i%2===0) textAt(item[0],item[1],p.x,p.y,size,p.color,p.glow,0.98);
-  }
-  if(progress<1 && count>0){
-    const p=layout.outline[Math.min(count-1,layout.outline.length-1)];
-    ctx.save();ctx.fillStyle="#fff2f8";ctx.shadowColor="#ff4f91";ctx.shadowBlur=18;
-    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.restore();
+function drawText(item,size,alpha=1){
+  const phrase=phrases[item.lang];
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.font=`700 ${size}px ${phrase[1]}`;
+  ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillStyle=item.color;
+  if(item.glow){ctx.shadowColor=item.color;ctx.shadowBlur=10;}
+  ctx.fillText(phrase[0],item.x,item.y);
+  ctx.restore();
+}
+function drawStars(progress){
+  const {inner}=layout;
+  for(let i=0;i<inner.length;i++){
+    const p=inner[i];
+    if(!p.glow || i/inner.length>progress)continue;
+    const twinkle=0.65+0.35*Math.sin(frame*0.07+i);
+    ctx.save();ctx.globalAlpha=twinkle;ctx.fillStyle="#fff6fb";ctx.shadowColor=p.color;ctx.shadowBlur=12;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.starSize,0,Math.PI*2);ctx.fill();ctx.restore();
   }
 }
-function drawFill(progress) {
-  const count=Math.floor(progress*layout.inner.length);
-  for(let i=0;i<count;i++){
-    const p=layout.inner[i], item=phrases[p.lang];
-    const size=Math.max(6,Math.min(9,W/78));
-    textAt(item[0],item[1],p.x,p.y,size,p.color,p.glow,0.9);
-  }
-}
-function renderFrame() {
-  if(!layout || !layout.outline) return;
+function renderFrame(){
+  if(!layout)return;
   ctx.clearRect(0,0,W,H);
-  const {scale,cx,cy}=layout;
-  // A subtle heart-shaped glow, using the actual classic heart contour.
-  ctx.save();ctx.globalAlpha=0.07;ctx.fillStyle="#ff247f";ctx.shadowColor="#ff247f";ctx.shadowBlur=45;
+  const {scale,cx,cy,outline,inner}=layout;
+  // Very subtle pink aura behind the whole heart.
+  ctx.save();ctx.globalAlpha=0.055;ctx.fillStyle="#ff247f";ctx.shadowColor="#ff247f";ctx.shadowBlur=48;
   ctx.beginPath();
-  for(let i=0;i<=360;i++){
-    const p=heartPoint(i*Math.PI/180), x=cx+p.x*scale, y=cy-p.y*scale;
-    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-  }
+  for(let i=0;i<=360;i++){const p=heartPoint(i*Math.PI/180),x=cx+p.x*scale,y=cy-p.y*scale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
   ctx.closePath();ctx.fill();ctx.restore();
 
-  const outlineProgress=Math.min(1,frame/drawDuration);
-  const fillProgress=Math.min(1,Math.max(0,(frame-drawDuration)/fillDuration));
-  drawOutline(outlineProgress);
-  if(frame>=drawDuration) drawFill(fillProgress);
-  if(fillProgress>=1){
-    // Center message remains visible forever after the animation completes.
-    textAt("I love you, Divya","Arial, sans-serif",cx,cy,
-      Math.max(13,Math.min(20,W/34)),"#fff0f7",true,1);
+  const op=Math.min(1,frame/drawDuration);
+  const fp=Math.min(1,Math.max(0,(frame-drawDuration)/fillDuration));
+  const outCount=Math.floor(op*outline.length);
+  // Trace a continuous heart outline with the multilingual phrases.
+  for(let i=0;i<outCount;i+=2){
+    const item=outline[i];
+    drawText(item,Math.max(6.5,Math.min(9.5,W/74)),0.98);
+  }
+  if(op<1 && outCount>0){
+    const p=outline[Math.min(outCount,outline.length-1)];
+    ctx.save();ctx.fillStyle="#fff8fc";ctx.shadowColor="#ff4f91";ctx.shadowBlur=18;
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+
+  // Fill the complete interior progressively, top to bottom.
+  const fillCount=Math.floor(fp*inner.length);
+  const size=Math.max(5.2,Math.min(7.6,W/92));
+  for(let i=0;i<fillCount;i++){
+    const item=inner[i];
+    drawText(item,size,0.94);
+  }
+  drawStars(fp);
+
+  if(fp>=1){
+    // A restrained central message; all other text remains visible behind it.
+    ctx.save();
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.font=`700 ${Math.max(12,Math.min(18,W/36))}px Arial, sans-serif`;
+    ctx.fillStyle="#fff4fa";ctx.shadowColor="#ff69a8";ctx.shadowBlur=12;
+    ctx.fillText("I love you, Divya",cx,cy);
+    ctx.restore();
     completed=true;
   }
 }
-function animate() {
-  if(!running) return;
-  if(!completed) {
-    frame++;
-    renderFrame();
-    if(frame>=totalDuration) { frame=totalDuration; renderFrame(); completed=true; }
-    raf=requestAnimationFrame(animate);
-  }
+function animate(){
+  if(!running||completed)return;
+  frame++;
+  renderFrame();
+  if(frame>=drawDuration+fillDuration){frame=drawDuration+fillDuration;renderFrame();completed=true;return;}
+  raf=requestAnimationFrame(animate);
 }
 window.addEventListener("resize",resize);
 document.getElementById("toggle").addEventListener("click",e=>{
   running=!running;
   e.currentTarget.textContent=running?"Pause animation":"Resume animation";
-  if(running && !completed) animate();
-  else cancelAnimationFrame(raf);
+  if(running&&!completed)animate();else cancelAnimationFrame(raf);
 });
 document.getElementById("share").addEventListener("click",async()=>{
   const data={title:document.title,text:"20 languages. One heart. ❤️",url:location.href};
-  try{
-    if(navigator.share) await navigator.share(data);
-    else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert("Link copied!");}
-    else prompt("Copy this link:",location.href);
-  }catch(_){}
+  try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert("Link copied!");}else prompt("Copy this link:",location.href);}catch(_){}
 });
-resize();
-animate();
+resize();animate();
 </script>
 </body>
 </html>
