@@ -23,7 +23,7 @@
 <body>
 <main>
   <h1>19 Languages. One Heart. ❤️</h1>
-  <p>A little love, in every language.</p>
+  <p>Watch one message draw a heart, then fill it with love in 19 languages.</p>
   <canvas id="heart" aria-label="An animated heart made of love messages in 20 languages"></canvas>
   <div class="bottom">
     <button id="toggle">Pause animation</button>
@@ -45,20 +45,21 @@ const phrases = [
   ["Ich liebe dich", "Arial, sans-serif"],
   ["Ti amo", "Arial, sans-serif"],
   ["Eu te amo", "Arial, sans-serif"],
-  ["Σ’ αγαπώ", "Arial, sans-serif"], // Greek
   ["আমি তোমাকে ভালোবাসি", "'Noto Sans Bengali', sans-serif"],
   ["मी तुझ्यावर प्रेम करतो", "'Noto Sans Devanagari', sans-serif"],
   ["Seni seviyorum", "Arial, sans-serif"],
   ["Aku cinta kamu", "Arial, sans-serif"],
   ["ฉันรักคุณ", "'Noto Sans Thai', sans-serif"],
   ["నేను నిన్ను ప్రేమిస్తున్నాను", "'Noto Sans Telugu', sans-serif"],
-  ["ਮੈਂ ਤੈਨੂੰ ਪਿਆਰ ਕਰਦਾ ਹਾਂ", "'Noto Sans Gurmukhi', sans-serif"],
-  ["I love you D", "Arial, sans-serif"]
+  ["ਮੈਂ ਤੈਨੂੰ ਪਿਆਰ ਕਰਦਾ ਹਾਂ", "'Noto Sans Gurmukhi', sans-serif"]
 ];
 const colors = ["#ff8bb8", "#ffb5d0", "#ff4f91", "#ffd0e1", "#e86aa4", "#ff9fbd"];
 const canvas = document.getElementById("heart");
 const ctx = canvas.getContext("2d");
 let W = 800, H = 650, frame = 0, running = true, raf;
+const outlinePoints = 620;
+const fillPoints = 1600;
+const cycleFrames = 1200; // ~20 seconds at 60fps
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -73,57 +74,95 @@ function heartPoint(a) {
     y: 13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a)
   };
 }
+function pos(a, shrink, scale, cx, cy) {
+  const p = heartPoint(a);
+  return {x: cx + p.x * scale * shrink, y: cy - p.y * scale * shrink};
+}
+function textAt(text, font, x, y, size, color, alpha=1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 7;
+  ctx.font = `700 ${size}px ${font}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
 function draw() {
   ctx.clearRect(0, 0, W, H);
-  const scale = Math.min(W / 39, H / 35) * 0.94;
-  const cx = W / 2, cy = H / 2 + scale * 0.15;
-  // Soft glow behind the text heart
+  const scale = Math.min(W / 37, H / 33) * 0.94;
+  const cx = W / 2, cy = H / 2 + scale * 0.12;
+  const phase = (frame % cycleFrames) / cycleFrames;
+  const outlinePhase = 0.57; // first 57% draws the outline
+  const outlineProgress = Math.min(1, phase / outlinePhase);
+  const fillProgress = Math.max(0, (phase - outlinePhase) / (1 - outlinePhase));
+
+  // Gentle glow
   ctx.save();
-  ctx.globalAlpha = 0.09;
+  ctx.globalAlpha = 0.07;
   ctx.fillStyle = "#ff247f";
   ctx.shadowColor = "#ff247f";
-  ctx.shadowBlur = 45;
+  ctx.shadowBlur = 48;
   ctx.beginPath();
   for (let i=0; i<=360; i++) {
-    const p = heartPoint(i * Math.PI / 180);
-    const x = cx + p.x * scale, y = cy - p.y * scale;
-    if (!i) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    const p = pos(i*Math.PI/180, 1, scale, cx, cy);
+    if (!i) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
   }
   ctx.closePath(); ctx.fill(); ctx.restore();
 
-  // Several inward layers create a dense heart made of phrases.
-  const layers = 9, pointsPerLayer = Math.max(40, Math.floor(W / 3.1));
-  let idx = 0;
-  for (let layer=0; layer<layers; layer++) {
-    const shrink = 1 - layer * 0.085;
-    for (let i=0; i<pointsPerLayer; i++) {
-      const a = (i / pointsPerLayer) * Math.PI * 2 + layer * 0.027;
-      const p = heartPoint(a);
-      const x = cx + p.x * scale * shrink;
-      const y = cy - p.y * scale * shrink;
-      const item = phrases[(idx * 7 + layer * 3 + Math.floor(frame / 16)) % phrases.length];
-      const size = Math.max(7, Math.min(11, W / 65)) * (layer > 5 ? 0.88 : 1);
-      ctx.save();
-      ctx.globalAlpha = 0.72 + 0.28 * Math.sin(frame * 0.035 + idx * 0.2);
-      ctx.fillStyle = colors[(idx + layer) % colors.length];
-      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 5;
-      ctx.font = `700 ${size}px ${item[1]}`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(item[0], x, y, Math.max(35, scale * 2.4));
-      ctx.restore();
-      idx++;
+  // PHASE 1: one phrase writes the outline like handwriting.
+  // As the line grows, the phrase changes language along the path.
+  const visibleOutline = Math.floor(outlineProgress * outlinePoints);
+  for (let i=0; i<visibleOutline; i++) {
+    const a = (i / outlinePoints) * Math.PI * 2;
+    const p = pos(a, 1, scale, cx, cy);
+    const langIndex = Math.min(phrases.length - 1, Math.floor(i / outlinePoints * phrases.length));
+    const phrase = phrases[langIndex];
+    const size = Math.max(7, Math.min(11, W / 64));
+    // Draw the first few characters as a writing trail, then full phrase at intervals.
+    const reveal = Math.floor((frame * 0.9) % Math.max(1, phrase[0].length));
+    const shown = i < 10 ? "I love you, Divya".slice(0, Math.max(1, reveal)) : phrase[0];
+    if (i % 3 === 0) textAt(shown, phrase[1], p.x, p.y, size, colors[i % colors.length], 0.96);
+  }
+
+  // A tiny glowing cursor travels along the line as if it is being drawn.
+  if (outlineProgress < 1) {
+    const p = pos(outlineProgress * Math.PI * 2, 1, scale, cx, cy);
+    ctx.save(); ctx.fillStyle="#fff0f7"; ctx.shadowColor="#ff4f91"; ctx.shadowBlur=18;
+    ctx.beginPath(); ctx.arc(p.x,p.y,3.2,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+
+  // PHASE 2: once the outline is complete, fill it from the outside inward with multilingual text.
+  if (fillProgress > 0) {
+    const maxFill = Math.floor(fillProgress * fillPoints);
+    for (let i=0; i<maxFill; i++) {
+      const layer = Math.floor(i / 180);
+      const within = (i % 180) / 180;
+      const a = within * Math.PI * 2 + layer * 0.11;
+      const shrink = Math.max(0.08, 0.92 - layer * 0.095);
+      const p = pos(a, shrink, scale, cx, cy);
+      const item = phrases[(i * 7 + layer * 3 + Math.floor(frame / 20)) % phrases.length];
+      const size = Math.max(6, Math.min(10, W / 72));
+      if (i % 2 === 0) textAt(item[0], item[1], p.x, p.y, size, colors[(i+layer)%colors.length], 0.88);
     }
+  }
+
+  // Personal message appears only after the heart is filled.
+  if (fillProgress > 0.94) {
+    const alpha = Math.min(1, (fillProgress - 0.94) / 0.06);
+    textAt("I love you, Divya", "Arial, sans-serif", cx, cy + scale*0.03,
+      Math.max(13, Math.min(20, W/34)), "#fff0f7", alpha);
   }
   frame++;
   if (running) raf = requestAnimationFrame(draw);
 }
-window.addEventListener("resize", () => { resize(); if (!running) drawOnce(); });
-function drawOnce() { const old = running; running = false; cancelAnimationFrame(raf); draw(); running = old; }
+window.addEventListener("resize", () => { resize(); });
 document.getElementById("toggle").addEventListener("click", e => {
   running = !running;
   e.currentTarget.textContent = running ? "Pause animation" : "Resume animation";
-  if (running) draw();
-  else cancelAnimationFrame(raf);
+  if (running) draw(); else cancelAnimationFrame(raf);
 });
 document.getElementById("share").addEventListener("click", async () => {
   const data = { title: document.title, text: "19 languages. One heart. ❤️", url: location.href };
