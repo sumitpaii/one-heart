@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#09020b">
+<title>20 Languages, One Heart ❤️</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Telugu:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: #09020b; color: #ffe7f1; }
+  body { font-family: system-ui, sans-serif; overflow: hidden; }
+  main { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 12px 24px; }
+  h1 { font-size: clamp(1.15rem, 4vw, 1.8rem); margin: 0 0 5px; text-align: center; letter-spacing: .04em; font-weight: 600; }
+  p { color: #d7a7bd; margin: 0 0 8px; font-size: .88rem; text-align: center; }
+  canvas { display: block; width: min(96vw, 760px); height: min(74svh, 650px); max-height: 650px; }
+  .bottom { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; margin-top: 4px; }
+  button { color: #ffe7f1; background: #28101f; border: 1px solid #a83b70; border-radius: 999px; padding: 10px 16px; font-size: .9rem; cursor: pointer; }
+  button:hover { background:#40162f; }
+  .note { font-size: .72rem; color:#98788a; margin-top:8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>19 Languages. One Heart. ❤️</h1>
+  <p>A little love, in every language.</p>
+  <canvas id="heart" aria-label="An animated heart made of love messages in 20 languages"></canvas>
+  <div class="bottom">
+    <button id="toggle">Pause animation</button>
+    <button id="share">Share this page</button>
+  </div>
+  <div class="note">Made with love • Turn your phone sideways for a wider heart</div>
+</main>
+<script>
+const phrases = [
+  ["I love you, Divya", "Arial, sans-serif"],
+  ["मैं तुमसे प्यार करता हूँ", "'Noto Sans Devanagari', sans-serif"],
+  ["Je t’aime", "Arial, sans-serif"],
+  ["Te amo", "Arial, sans-serif"],
+  ["Anh yêu em", "Arial, sans-serif"],
+  ["我爱你", "'Noto Sans JP', sans-serif"],
+  ["愛してる", "'Noto Sans JP', sans-serif"],
+  ["Я тебя люблю", "Arial, sans-serif"],
+  ["사랑해", "'Noto Sans KR', sans-serif"],
+  ["Ich liebe dich", "Arial, sans-serif"],
+  ["Ti amo", "Arial, sans-serif"],
+  ["Eu te amo", "Arial, sans-serif"],
+  ["Σ’ αγαπώ", "Arial, sans-serif"], // Greek
+  ["আমি তোমাকে ভালোবাসি", "'Noto Sans Bengali', sans-serif"],
+  ["मी तुझ्यावर प्रेम करतो", "'Noto Sans Devanagari', sans-serif"],
+  ["Seni seviyorum", "Arial, sans-serif"],
+  ["Aku cinta kamu", "Arial, sans-serif"],
+  ["ฉันรักคุณ", "'Noto Sans Thai', sans-serif"],
+  ["నేను నిన్ను ప్రేమిస్తున్నాను", "'Noto Sans Telugu', sans-serif"],
+  ["ਮੈਂ ਤੈਨੂੰ ਪਿਆਰ ਕਰਦਾ ਹਾਂ", "'Noto Sans Gurmukhi', sans-serif"],
+  ["I love you D", "Arial, sans-serif"]
+];
+const colors = ["#ff8bb8", "#ffb5d0", "#ff4f91", "#ffd0e1", "#e86aa4", "#ff9fbd"];
+const canvas = document.getElementById("heart");
+const ctx = canvas.getContext("2d");
+let W = 800, H = 650, frame = 0, running = true, raf;
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(300, rect.width); H = Math.max(300, rect.height);
+  canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function heartPoint(a) {
+  return {
+    x: 16 * Math.pow(Math.sin(a), 3),
+    y: 13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a)
+  };
+}
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const scale = Math.min(W / 39, H / 35) * 0.94;
+  const cx = W / 2, cy = H / 2 + scale * 0.15;
+  // Soft glow behind the text heart
+  ctx.save();
+  ctx.globalAlpha = 0.09;
+  ctx.fillStyle = "#ff247f";
+  ctx.shadowColor = "#ff247f";
+  ctx.shadowBlur = 45;
+  ctx.beginPath();
+  for (let i=0; i<=360; i++) {
+    const p = heartPoint(i * Math.PI / 180);
+    const x = cx + p.x * scale, y = cy - p.y * scale;
+    if (!i) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  // Several inward layers create a dense heart made of phrases.
+  const layers = 9, pointsPerLayer = Math.max(40, Math.floor(W / 3.1));
+  let idx = 0;
+  for (let layer=0; layer<layers; layer++) {
+    const shrink = 1 - layer * 0.085;
+    for (let i=0; i<pointsPerLayer; i++) {
+      const a = (i / pointsPerLayer) * Math.PI * 2 + layer * 0.027;
+      const p = heartPoint(a);
+      const x = cx + p.x * scale * shrink;
+      const y = cy - p.y * scale * shrink;
+      const item = phrases[(idx * 7 + layer * 3 + Math.floor(frame / 16)) % phrases.length];
+      const size = Math.max(7, Math.min(11, W / 65)) * (layer > 5 ? 0.88 : 1);
+      ctx.save();
+      ctx.globalAlpha = 0.72 + 0.28 * Math.sin(frame * 0.035 + idx * 0.2);
+      ctx.fillStyle = colors[(idx + layer) % colors.length];
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 5;
+      ctx.font = `700 ${size}px ${item[1]}`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(item[0], x, y, Math.max(35, scale * 2.4));
+      ctx.restore();
+      idx++;
+    }
+  }
+  frame++;
+  if (running) raf = requestAnimationFrame(draw);
+}
+window.addEventListener("resize", () => { resize(); if (!running) drawOnce(); });
+function drawOnce() { const old = running; running = false; cancelAnimationFrame(raf); draw(); running = old; }
+document.getElementById("toggle").addEventListener("click", e => {
+  running = !running;
+  e.currentTarget.textContent = running ? "Pause animation" : "Resume animation";
+  if (running) draw();
+  else cancelAnimationFrame(raf);
+});
+document.getElementById("share").addEventListener("click", async () => {
+  const data = { title: document.title, text: "19 languages. One heart. ❤️", url: location.href };
+  try {
+    if (navigator.share) await navigator.share(data);
+    else if (navigator.clipboard) { await navigator.clipboard.writeText(location.href); alert("Link copied!"); }
+    else prompt("Copy this link:", location.href);
+  } catch (_) {}
+});
+resize(); draw();
+</script>
+</body>
+</html>
