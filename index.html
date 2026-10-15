@@ -32,7 +32,6 @@
   <div class="note">Made for you, love! • Turn your phone sideways for a wider heart</div>
 </main>
 <script>
-// Twenty fixed translations: each appears in the same animation. English is personalized as requested.
 const phrases = [
   ["I love you, D!", "Arial, sans-serif"],
   ["मैं तुमसे प्यार करता हूँ", "'Noto Sans Devanagari', sans-serif"],
@@ -49,54 +48,114 @@ const phrases = [
   ["ਮੈਂ ਤੈਨੂੰ ਪਿਆਰ ਕਰਦਾ ਹਾਂ", "'Noto Sans Gurmukhi', sans-serif"],
   ["Kocham cię", "Arial, sans-serif"]
 ];
-const colors = ["#ff8bb8", "#ffb5d0", "#ff4f91", "#ffd0e1", "#e86aa4", "#ff9fbd"];
-const canvas = document.getElementById('heart'), ctx = canvas.getContext('2d');
-let W=800,H=650, dpr=1, raf=0, running=true, done=false, step=0, outline=[], rows=[], center={x:0,y:0,scale:1};
-const heart = t => ({x:16*Math.sin(t)**3, y:13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)});
-function heartPath(scale,cx,cy){ctx.beginPath();for(let i=0;i<=500;i++){const p=heart(i/500*Math.PI*2),x=cx+p.x*scale,y=cy-p.y*scale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.closePath()}
-function pointInside(x,y,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside}return inside}
-function measurePhrase(i,size){ctx.font=`700 ${size}px ${phrases[i][1]}`;return ctx.measureText(phrases[i][0]).width}
+const palette=["#ff8bb8","#ffb5d0","#ff4f91","#ffd0e1","#e86aa4","#ff9fbd"];
+const canvas=document.getElementById("heart"),ctx=canvas.getContext("2d");
+let W=800,H=650,dpr=1,raf=0,running=false,done=false,frame=0,layout;
+const DRAW_FRAMES=210,FILL_FRAMES=430;
+function hp(t){return{x:16*Math.sin(t)**3,y:13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)}}
+function pathHeart(cx,cy,s){
+ ctx.beginPath();
+ for(let i=0;i<=480;i++){const p=hp(i/480*Math.PI*2),x=cx+p.x*s,y=cy-p.y*s;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}
+ ctx.closePath();
+}
 function setup(){
- const rect=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=Math.max(300,rect.width);H=Math.max(300,rect.height);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
- const scale=Math.min(W/36,H/32)*.87,cx=W/2,cy=H/2+scale*.08;center={x:cx,y:cy,scale};
- outline=[];rows=[];
- // Polygon in normalized heart coordinates for exact clipping and row spans.
- const poly=[];for(let i=0;i<720;i++){const p=heart(i/720*Math.PI*2);poly.push([p.x,p.y])}
- // Outline labels: one label per language, spaced evenly around the curve. Only select labels twinkle.
- for(let i=0;i<phrases.length;i++){const t=(i/phrases.length)*Math.PI*2,p=heart(t),q=heart(t+.008);let angle=Math.atan2(-(q.y-p.y),q.x-p.x);if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;outline.push({x:cx+p.x*scale,y:cy-p.y*scale,angle,lang:i,color:colors[i%colors.length],glow:[2,6,11,16].includes(i)})}
- // Interior rows: calculate true left/right intersections of the heart at each y.
- // Place phrase labels with measured spacing so they don't pile up in the centre.
- const size=Math.max(6.1,Math.min(8.1,W/82));
- for(let y=-16.2,row=0;y<=16.2;y+=1.55,row++){
-   const xs=[];for(let i=0;i<poly.length;i++){const [x1,y1]=poly[i],[x2,y2]=poly[(i+1)%poly.length];if((y1<=y&&y2>y)||(y2<=y&&y1>y)){xs.push(x1+(y-y1)*(x2-x1)/(y2-y1))}}
-   if(xs.length<2)continue;xs.sort((a,b)=>a-b);const left=xs[0]+.45,right=xs[xs.length-1]-.45;
-   let x=left+((row%2)*.6),idx=(row*3)%phrases.length,guard=0;
-   while(x<right&&guard++<30){const lang=idx%phrases.length,w=measurePhrase(lang,size),available=right-x;if(w>available){if(x===left+((row%2)*.6)){x+=Math.max(1,(available-w)/2); if(x+w>right)break;}else break;}
-     const seed=row*37+guard*13+lang*5;rows.push({x:x+w/2,y:cy-y*scale,lang,color:colors[(seed)%colors.length],glow:(seed%17===4)||(seed%31===9),size});
-     x+=w+Math.max(2.2,size*.45);idx+=1;
-   }
+ const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);W=Math.max(300,r.width);H=Math.max(320,r.height);
+ canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ const s=Math.min(W/36.5,H/34)*.88,cx=W/2,cy=H/2+s*.12;
+ const outline=[];
+ for(let i=0;i<360;i++){const t=i/360*Math.PI*2,p=hp(t),q=hp(t+.01);outline.push({
+  x:cx+p.x*s,y:cy-p.y*s,angle:Math.atan2(-(q.y-p.y),q.x-p.x),lang:Math.floor(i/360*phrases.length),
+  color:palette[i%palette.length],glow:(i%47===5)||(i%71===19)
+ })}
+ // Pre-layout many short, readable multilingual text labels in rows.
+ // The whole row is clipped to the exact heart path, guaranteeing the silhouette.
+ const rows=[];
+ const fontSize=Math.max(6.2,Math.min(8.4,W/80)), lineH=fontSize*1.85;
+ let row=0;
+ for(let y=-16.2;y<=16.2;y+=lineH/s,row++){
+  let x=-16.1, guard=0, lang=(row*3)%phrases.length;
+  const yy=cy-y*s;
+  while(x<=16.1&&guard++<100){
+   const item=phrases[lang%phrases.length];
+   ctx.font=`700 ${fontSize}px ${item[1]}`;
+   const width=ctx.measureText(item[0]).width;
+   const xx=cx+x*s;
+   rows.push({x:xx+width/2,y:yy,lang:lang%phrases.length,color:palette[(row+guard*2)%palette.length],
+     glow:((row*31+guard*17)%41===3)||((row*19+guard*7)%67===8),size:fontSize});
+   x+=(width+fontSize*1.7)/s;
+   lang++;
+  }
  }
- // Use a predictable row order: draw the outer contour first, then each row from top to bottom.
- step=0;done=false;running=true;drawBase();
+ layout={s,cx,cy,outline,rows,fontSize};
+ frame=0;done=false;running=true;
+ drawFrame();
 }
-function drawBase(){ctx.clearRect(0,0,W,H);ctx.save();ctx.globalAlpha=.055;ctx.fillStyle='#ff247f';ctx.shadowColor='#ff247f';ctx.shadowBlur=35;heartPath(center.scale,center.x,center.y);ctx.fill();ctx.restore()}
-function paintLabel(item,size,alpha=1){const ph=phrases[item.lang];ctx.save();ctx.translate(item.x,item.y);if(item.angle)ctx.rotate(item.angle);ctx.font=`700 ${size||item.size||6.5}px ${ph[1]}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=item.color;ctx.globalAlpha=alpha;if(item.glow){ctx.shadowColor=item.color;ctx.shadowBlur=10}ctx.fillText(ph[0],0,0);ctx.restore()}
-function sparkle(item){ctx.save();ctx.globalAlpha=.9;ctx.fillStyle='#fff7fb';ctx.shadowColor=item.color;ctx.shadowBlur=13;ctx.beginPath();ctx.arc(item.x,item.y,1.35,0,Math.PI*2);ctx.fill();ctx.restore()}
-function draw(){if(!running||done)return;
- // Repaint base and all already revealed items so the animation is stable across frames.
- drawBase();const total=outline.length+rows.length;const visible=Math.min(total,step);
- for(let i=0;i<Math.min(outline.length,visible);i++){paintLabel(outline[i],Math.max(5.3,Math.min(7.2,W/94)),.98);if(outline[i].glow)sparkle(outline[i])}
- for(let i=0;i<Math.max(0,visible-outline.length);i++){paintLabel(rows[i]);if(rows[i].glow)sparkle(rows[i])}
- if(step<outline.length){const p=outline[Math.min(step,outline.length-1)];ctx.save();ctx.fillStyle='#fff';ctx.shadowColor='#ff4f91';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(p.x,p.y,2.3,0,Math.PI*2);ctx.fill();ctx.restore()}
- step+=Math.max(1,Math.ceil(total/520));
- if(step>=total){step=total;drawBase();for(const p of outline){paintLabel(p,Math.max(5.3,Math.min(7.2,W/94)),.98);if(p.glow)sparkle(p)}for(const p of rows){paintLabel(p);if(p.glow)sparkle(p)}
-   ctx.save();ctx.font=`700 ${Math.max(12,Math.min(17,W/37))}px Arial,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff4fa';ctx.shadowColor='#ff69a8';ctx.shadowBlur=12;ctx.fillText('I love you, D!',center.x,center.y);ctx.restore();done=true;document.getElementById('toggle').textContent='Replay animation';return}
- raf=requestAnimationFrame(draw)
+function text(item,size,alpha=1){
+ const ph=phrases[item.lang];ctx.save();ctx.translate(item.x,item.y);
+ if(item.angle)ctx.rotate(item.angle);
+ ctx.font=`700 ${size||item.size||7}px ${ph[1]}`;ctx.textAlign="center";ctx.textBaseline="middle";
+ ctx.fillStyle=item.color;ctx.globalAlpha=alpha;
+ if(item.glow){ctx.shadowColor=item.color;ctx.shadowBlur=10}
+ ctx.fillText(ph[0],0,0);ctx.restore();
 }
-function begin(){if(raf)cancelAnimationFrame(raf);setup();draw()}
-window.addEventListener('resize',()=>{if(raf)cancelAnimationFrame(raf);begin()});
-document.getElementById('toggle').addEventListener('click',e=>{if(done){begin();return}running=!running;e.currentTarget.textContent=running?'Pause animation':'Resume animation';if(running)draw();else if(raf)cancelAnimationFrame(raf)});
-document.getElementById('share').addEventListener('click',async()=>{const data={title:document.title,text:'20 languages. One heart. ❤️',url:location.href};try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert('Link copied!')}else prompt('Copy this link:',location.href)}catch(_){}});
+function star(x,y,color,r=1.3){
+ ctx.save();ctx.fillStyle="#fff5fb";ctx.shadowColor=color;ctx.shadowBlur=11;
+ ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+function drawFrame(){
+ const {s,cx,cy,outline,rows,fontSize}=layout;
+ ctx.clearRect(0,0,W,H);
+ // Subtle aura under the finished heart.
+ ctx.save();ctx.globalAlpha=.055;ctx.fillStyle="#ff247f";ctx.shadowColor="#ff247f";ctx.shadowBlur=42;
+ pathHeart(cx,cy,s);ctx.fill();ctx.restore();
+ const outlineP=Math.min(1,frame/DRAW_FRAMES);
+ const fillP=Math.max(0,Math.min(1,(frame-DRAW_FRAMES)/FILL_FRAMES));
+ // Phase 1: the multilingual outline is revealed in drawing order.
+ const outN=Math.floor(outline.length*outlineP);
+ for(let i=0;i<outN;i+=2){text(outline[i],Math.max(5.4,Math.min(7.2,W/94)),.98);if(outline[i].glow)star(outline[i].x,outline[i].y,palette[i%palette.length],1.1)}
+ if(outlineP<1&&outN>0){const p=outline[Math.min(outN,outline.length-1)];star(p.x,p.y,"#ff8bb8",2.2)}
+ // Phase 2: progressively reveal the text rows from the top down, clipped to the heart.
+ if(fillP>0){
+  ctx.save();pathHeart(cx,cy,s);ctx.clip();
+  const revealY=(cy-17*s)+fillP*(34*s);
+  ctx.beginPath();ctx.rect(0,cy-17*s,W,Math.max(0,revealY-(cy-17*s)));ctx.clip();
+  for(let i=0;i<rows.length;i++){
+   const item=rows[i];text(item,item.size,.88);
+   // Star-like glow on a sparse, stable selection only.
+   if(item.glow)star(item.x,item.y,item.color,1.05);
+  }
+  ctx.restore();
+ }
+ if(fillP>=1){
+  ctx.save();ctx.font=`700 ${Math.max(12,Math.min(18,W/36))}px Arial,sans-serif`;
+  ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle="#fff5fa";
+  ctx.shadowColor="#ff69a8";ctx.shadowBlur=12;ctx.fillText("I love you, D!",cx,cy);ctx.restore();
+  done=true;running=false;document.getElementById("toggle").textContent="Replay animation";
+ }
+}
+function animate(){
+ if(!running||done)return;
+ frame++;drawFrame();
+ if(done)return;
+ raf=requestAnimationFrame(animate);
+}
+function begin(){
+ if(raf)cancelAnimationFrame(raf);
+ setup();frame=0;done=false;running=true;
+ document.getElementById("toggle").textContent="Pause animation";
+ animate();
+}
+window.addEventListener("resize",()=>begin());
+document.getElementById("toggle").addEventListener("click",e=>{
+ if(done){begin();return}
+ running=!running;
+ e.currentTarget.textContent=running?"Pause animation":"Resume animation";
+ if(running)animate();else if(raf)cancelAnimationFrame(raf);
+});
+document.getElementById("share").addEventListener("click",async()=>{
+ const data={title:document.title,text:"20 languages. One heart. ❤️",url:location.href};
+ try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert("Link copied!")}else prompt("Copy this link:",location.href)}catch(_){}
+});
 begin();
 </script>
 </body>
