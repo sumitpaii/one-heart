@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#09020b">
-<title>My Heart for You</title>
+<title>20 Languages, One Heart ❤️</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;700&family=Noto+Sans+Bengali:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Telugu:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;700&family=Noto+Sans+Devanagari:wght@400;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Noto+Sans+Thai:wght@400;700&family=Noto+Sans+Telugu:wght@400;700&family=Noto+Sans+Gurmukhi:wght@400;700&display=swap');
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; background: #09020b; color: #ffe7f1; }
   body { font-family: system-ui, sans-serif; overflow: hidden; }
@@ -22,178 +22,82 @@
 </head>
 <body>
 <main>
-  <h1>My Heart for You</h1>
-  <p>Watch a heart draw itself with love in 20 languages.</p>
+  <h1>20 Languages. One Heart. ❤️</h1>
+  <p>Twenty languages, one heart — drawn just for you.</p>
   <canvas id="heart" aria-label="An animated heart made of love messages in 20 languages"></canvas>
   <div class="bottom">
     <button id="toggle">Pause animation</button>
     <button id="share">Share this page</button>
   </div>
-  <div class="note">Made for you, Darling • Turn your phone sideways for a wider heart</div>
+  <div class="note">Made for you, love! • Turn your phone sideways for a wider heart</div>
 </main>
 <script>
+// Twenty fixed translations: each appears in the same animation. English is personalized as requested.
 const phrases = [
-  ["I love you, Divya", "Arial, sans-serif"],
+  ["I love you, D!", "Arial, sans-serif"],
   ["मैं तुमसे प्यार करता हूँ", "'Noto Sans Devanagari', sans-serif"],
-  ["Je t’aime", "Arial, sans-serif"],
-  ["Te amo", "Arial, sans-serif"],
-  ["Anh yêu em", "Arial, sans-serif"],
-  ["我爱你", "'Noto Sans JP', sans-serif"],
-  ["愛してる", "'Noto Sans JP', sans-serif"],
-  ["Я тебя люблю", "Arial, sans-serif"],
-  ["사랑해", "'Noto Sans KR', sans-serif"],
-  ["Ich liebe dich", "Arial, sans-serif"],
-  ["Ti amo", "Arial, sans-serif"],
-  ["Eu te amo", "Arial, sans-serif"],
+  ["Je t’aime", "Arial, sans-serif"], ["Te amo", "Arial, sans-serif"],
+  ["Anh yêu em", "Arial, sans-serif"], ["我爱你", "'Noto Sans JP', sans-serif"],
+  ["愛してる", "'Noto Sans JP', sans-serif"], ["Я тебя люблю", "Arial, sans-serif"],
+  ["사랑해", "'Noto Sans KR', sans-serif"], ["Ich liebe dich", "Arial, sans-serif"],
+  ["Ti amo", "Arial, sans-serif"], ["Eu te amo", "Arial, sans-serif"],
   ["আমি তোমাকে ভালোবাসি", "'Noto Sans Bengali', sans-serif"],
   ["मी तुझ्यावर प्रेम करतो", "'Noto Sans Devanagari', sans-serif"],
-  ["Seni seviyorum", "Arial, sans-serif"],
-  ["Aku cinta kamu", "Arial, sans-serif"],
+  ["Seni seviyorum", "Arial, sans-serif"], ["Aku cinta kamu", "Arial, sans-serif"],
   ["ฉันรักคุณ", "'Noto Sans Thai', sans-serif"],
   ["నేను నిన్ను ప్రేమిస్తున్నాను", "'Noto Sans Telugu', sans-serif"],
   ["ਮੈਂ ਤੈਨੂੰ ਪਿਆਰ ਕਰਦਾ ਹਾਂ", "'Noto Sans Gurmukhi', sans-serif"],
   ["Kocham cię", "Arial, sans-serif"]
 ];
 const colors = ["#ff8bb8", "#ffb5d0", "#ff4f91", "#ffd0e1", "#e86aa4", "#ff9fbd"];
-const canvas = document.getElementById("heart");
-const ctx = canvas.getContext("2d");
-let W=800,H=650,frame=0,running=true,raf,completed=false,layout;
-const outlinePoints=520, drawDuration=620, fillDuration=760;
-
-function resize(){
-  const rect=canvas.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,2);
-  W=Math.max(300,rect.width); H=Math.max(300,rect.height);
-  canvas.width=Math.floor(W*dpr); canvas.height=Math.floor(H*dpr);
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  layout=makeLayout();
-  renderFrame();
+const canvas = document.getElementById('heart'), ctx = canvas.getContext('2d');
+let W=800,H=650, dpr=1, raf=0, running=true, done=false, step=0, outline=[], rows=[], center={x:0,y:0,scale:1};
+const heart = t => ({x:16*Math.sin(t)**3, y:13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)});
+function heartPath(scale,cx,cy){ctx.beginPath();for(let i=0;i<=500;i++){const p=heart(i/500*Math.PI*2),x=cx+p.x*scale,y=cy-p.y*scale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.closePath()}
+function pointInside(x,y,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))inside=!inside}return inside}
+function measurePhrase(i,size){ctx.font=`700 ${size}px ${phrases[i][1]}`;return ctx.measureText(phrases[i][0]).width}
+function setup(){
+ const rect=canvas.getBoundingClientRect();dpr=Math.min(window.devicePixelRatio||1,2);W=Math.max(300,rect.width);H=Math.max(300,rect.height);canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+ const scale=Math.min(W/36,H/32)*.87,cx=W/2,cy=H/2+scale*.08;center={x:cx,y:cy,scale};
+ outline=[];rows=[];
+ // Polygon in normalized heart coordinates for exact clipping and row spans.
+ const poly=[];for(let i=0;i<720;i++){const p=heart(i/720*Math.PI*2);poly.push([p.x,p.y])}
+ // Outline labels: one label per language, spaced evenly around the curve. Only select labels twinkle.
+ for(let i=0;i<phrases.length;i++){const t=(i/phrases.length)*Math.PI*2,p=heart(t),q=heart(t+.008);let angle=Math.atan2(-(q.y-p.y),q.x-p.x);if(angle>Math.PI/2||angle< -Math.PI/2)angle+=Math.PI;outline.push({x:cx+p.x*scale,y:cy-p.y*scale,angle,lang:i,color:colors[i%colors.length],glow:[2,6,11,16].includes(i)})}
+ // Interior rows: calculate true left/right intersections of the heart at each y.
+ // Place phrase labels with measured spacing so they don't pile up in the centre.
+ const size=Math.max(6.1,Math.min(8.1,W/82));
+ for(let y=-16.2,row=0;y<=16.2;y+=1.55,row++){
+   const xs=[];for(let i=0;i<poly.length;i++){const [x1,y1]=poly[i],[x2,y2]=poly[(i+1)%poly.length];if((y1<=y&&y2>y)||(y2<=y&&y1>y)){xs.push(x1+(y-y1)*(x2-x1)/(y2-y1))}}
+   if(xs.length<2)continue;xs.sort((a,b)=>a-b);const left=xs[0]+.45,right=xs[xs.length-1]-.45;
+   let x=left+((row%2)*.6),idx=(row*3)%phrases.length,guard=0;
+   while(x<right&&guard++<30){const lang=idx%phrases.length,w=measurePhrase(lang,size),available=right-x;if(w>available){if(x===left+((row%2)*.6)){x+=Math.max(1,(available-w)/2); if(x+w>right)break;}else break;}
+     const seed=row*37+guard*13+lang*5;rows.push({x:x+w/2,y:cy-y*scale,lang,color:colors[(seed)%colors.length],glow:(seed%17===4)||(seed%31===9),size});
+     x+=w+Math.max(2.2,size*.45);idx+=1;
+   }
+ }
+ // Use a predictable row order: draw the outer contour first, then each row from top to bottom.
+ step=0;done=false;running=true;drawBase();
 }
-function heartPoint(a){
-  return {x:16*Math.pow(Math.sin(a),3),y:13*Math.cos(a)-5*Math.cos(2*a)-2*Math.cos(3*a)-Math.cos(4*a)};
+function drawBase(){ctx.clearRect(0,0,W,H);ctx.save();ctx.globalAlpha=.055;ctx.fillStyle='#ff247f';ctx.shadowColor='#ff247f';ctx.shadowBlur=35;heartPath(center.scale,center.x,center.y);ctx.fill();ctx.restore()}
+function paintLabel(item,size,alpha=1){const ph=phrases[item.lang];ctx.save();ctx.translate(item.x,item.y);if(item.angle)ctx.rotate(item.angle);ctx.font=`700 ${size||item.size||6.5}px ${ph[1]}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=item.color;ctx.globalAlpha=alpha;if(item.glow){ctx.shadowColor=item.color;ctx.shadowBlur=10}ctx.fillText(ph[0],0,0);ctx.restore()}
+function sparkle(item){ctx.save();ctx.globalAlpha=.9;ctx.fillStyle='#fff7fb';ctx.shadowColor=item.color;ctx.shadowBlur=13;ctx.beginPath();ctx.arc(item.x,item.y,1.35,0,Math.PI*2);ctx.fill();ctx.restore()}
+function draw(){if(!running||done)return;
+ // Repaint base and all already revealed items so the animation is stable across frames.
+ drawBase();const total=outline.length+rows.length;const visible=Math.min(total,step);
+ for(let i=0;i<Math.min(outline.length,visible);i++){paintLabel(outline[i],Math.max(5.3,Math.min(7.2,W/94)),.98);if(outline[i].glow)sparkle(outline[i])}
+ for(let i=0;i<Math.max(0,visible-outline.length);i++){paintLabel(rows[i]);if(rows[i].glow)sparkle(rows[i])}
+ if(step<outline.length){const p=outline[Math.min(step,outline.length-1)];ctx.save();ctx.fillStyle='#fff';ctx.shadowColor='#ff4f91';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(p.x,p.y,2.3,0,Math.PI*2);ctx.fill();ctx.restore()}
+ step+=Math.max(1,Math.ceil(total/520));
+ if(step>=total){step=total;drawBase();for(const p of outline){paintLabel(p,Math.max(5.3,Math.min(7.2,W/94)),.98);if(p.glow)sparkle(p)}for(const p of rows){paintLabel(p);if(p.glow)sparkle(p)}
+   ctx.save();ctx.font=`700 ${Math.max(12,Math.min(17,W/37))}px Arial,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fff4fa';ctx.shadowColor='#ff69a8';ctx.shadowBlur=12;ctx.fillText('I love you, D!',center.x,center.y);ctx.restore();done=true;document.getElementById('toggle').textContent='Replay animation';return}
+ raf=requestAnimationFrame(draw)
 }
-function heartInside(x,y,poly){
-  let inside=false;
-  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
-    const [xi,yi]=poly[i],[xj,yj]=poly[j];
-    if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi+1e-9)+xi))inside=!inside;
-  }
-  return inside;
-}
-function makeLayout(){
-  const scale=Math.min(W/37,H/33)*0.94,cx=W/2,cy=H/2+scale*0.1;
-  const poly=[];
-  for(let i=0;i<720;i++){const p=heartPoint(i*Math.PI/360);poly.push([p.x,p.y]);}
-  const outline=[];
-  for(let i=0;i<outlinePoints;i++){
-    const p=heartPoint(2*Math.PI*i/outlinePoints);
-    outline.push({x:cx+p.x*scale,y:cy-p.y*scale,lang:Math.floor(i/outlinePoints*phrases.length),color:colors[i%colors.length],glow:i%31===7||i%47===13});
-  }
-  // Dense, even grid across the full interior of the heart. Each of the 20 languages
-  // is assigned across the shape; there is no changing language carousel.
-  const inner=[], step=0.66;
-  let n=0;
-  for(let y=-16.1;y<=12.6;y+=step){
-    for(let x=-15.4;x<=15.4;x+=step){
-      if(heartInside(x,y,poly)){
-        const lang=(n*7+Math.floor((y+17)*3))%phrases.length;
-        // Only a small, deterministic selection twinkles like stars.
-        const glow=(n%29===4)||(n%67===11)||(n%101===23);
-        inner.push({
-          x:cx+x*scale, y:cy-y*scale, lang,
-          color:colors[(n*3+lang)%colors.length], glow,
-          starSize: n%101===23 ? 1.35 : 1
-        });
-        n++;
-      }
-    }
-  }
-  // Fill from top to bottom like writing/drawing, then leave every point in place.
-  inner.sort((a,b)=>a.y-b.y || a.x-b.x);
-  return {scale,cx,cy,outline,inner};
-}
-function drawText(item,size,alpha=1){
-  const phrase=phrases[item.lang];
-  ctx.save();
-  ctx.globalAlpha=alpha;
-  ctx.font=`700 ${size}px ${phrase[1]}`;
-  ctx.textAlign="center";ctx.textBaseline="middle";
-  ctx.fillStyle=item.color;
-  if(item.glow){ctx.shadowColor=item.color;ctx.shadowBlur=10;}
-  ctx.fillText(phrase[0],item.x,item.y);
-  ctx.restore();
-}
-function drawStars(progress){
-  const {inner}=layout;
-  for(let i=0;i<inner.length;i++){
-    const p=inner[i];
-    if(!p.glow || i/inner.length>progress)continue;
-    const twinkle=0.65+0.35*Math.sin(frame*0.07+i);
-    ctx.save();ctx.globalAlpha=twinkle;ctx.fillStyle="#fff6fb";ctx.shadowColor=p.color;ctx.shadowBlur=12;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.starSize,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
-}
-function renderFrame(){
-  if(!layout)return;
-  ctx.clearRect(0,0,W,H);
-  const {scale,cx,cy,outline,inner}=layout;
-  // Very subtle pink aura behind the whole heart.
-  ctx.save();ctx.globalAlpha=0.055;ctx.fillStyle="#ff247f";ctx.shadowColor="#ff247f";ctx.shadowBlur=48;
-  ctx.beginPath();
-  for(let i=0;i<=360;i++){const p=heartPoint(i*Math.PI/180),x=cx+p.x*scale,y=cy-p.y*scale;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
-  ctx.closePath();ctx.fill();ctx.restore();
-
-  const op=Math.min(1,frame/drawDuration);
-  const fp=Math.min(1,Math.max(0,(frame-drawDuration)/fillDuration));
-  const outCount=Math.floor(op*outline.length);
-  // Trace a continuous heart outline with the multilingual phrases.
-  for(let i=0;i<outCount;i+=2){
-    const item=outline[i];
-    drawText(item,Math.max(6.5,Math.min(9.5,W/74)),0.98);
-  }
-  if(op<1 && outCount>0){
-    const p=outline[Math.min(outCount,outline.length-1)];
-    ctx.save();ctx.fillStyle="#fff8fc";ctx.shadowColor="#ff4f91";ctx.shadowBlur=18;
-    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
-
-  // Fill the complete interior progressively, top to bottom.
-  const fillCount=Math.floor(fp*inner.length);
-  const size=Math.max(5.2,Math.min(7.6,W/92));
-  for(let i=0;i<fillCount;i++){
-    const item=inner[i];
-    drawText(item,size,0.94);
-  }
-  drawStars(fp);
-
-  if(fp>=1){
-    // A restrained central message; all other text remains visible behind it.
-    ctx.save();
-    ctx.textAlign="center";ctx.textBaseline="middle";
-    ctx.font=`700 ${Math.max(12,Math.min(18,W/36))}px Arial, sans-serif`;
-    ctx.fillStyle="#fff4fa";ctx.shadowColor="#ff69a8";ctx.shadowBlur=12;
-    ctx.fillText("I love you, Divya",cx,cy);
-    ctx.restore();
-    completed=true;
-  }
-}
-function animate(){
-  if(!running||completed)return;
-  frame++;
-  renderFrame();
-  if(frame>=drawDuration+fillDuration){frame=drawDuration+fillDuration;renderFrame();completed=true;return;}
-  raf=requestAnimationFrame(animate);
-}
-window.addEventListener("resize",resize);
-document.getElementById("toggle").addEventListener("click",e=>{
-  running=!running;
-  e.currentTarget.textContent=running?"Pause animation":"Resume animation";
-  if(running&&!completed)animate();else cancelAnimationFrame(raf);
-});
-document.getElementById("share").addEventListener("click",async()=>{
-  const data={title:document.title,text:"20 languages. One heart. ❤️",url:location.href};
-  try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert("Link copied!");}else prompt("Copy this link:",location.href);}catch(_){}
-});
-resize();animate();
+function begin(){if(raf)cancelAnimationFrame(raf);setup();draw()}
+window.addEventListener('resize',()=>{if(raf)cancelAnimationFrame(raf);begin()});
+document.getElementById('toggle').addEventListener('click',e=>{if(done){begin();return}running=!running;e.currentTarget.textContent=running?'Pause animation':'Resume animation';if(running)draw();else if(raf)cancelAnimationFrame(raf)});
+document.getElementById('share').addEventListener('click',async()=>{const data={title:document.title,text:'20 languages. One heart. ❤️',url:location.href};try{if(navigator.share)await navigator.share(data);else if(navigator.clipboard){await navigator.clipboard.writeText(location.href);alert('Link copied!')}else prompt('Copy this link:',location.href)}catch(_){}});
+begin();
 </script>
 </body>
 </html>
